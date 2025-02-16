@@ -48,7 +48,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           port: ${{ secrets.SERVER_PORT }}
           key: ${{ secrets.SERVER_KEY }}
-          source: docker-compose.unite.yml
+          source: docker-compose.yml
           target: /home/kdh/docker/unite
           debug: true
 
