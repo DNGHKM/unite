@@ -50,13 +50,13 @@ public class ProfileImgService {
             return cachedResponse;
         }
 
-        // S3에서 이미지 다운로드
+        //이미지 다운로드
         String fileUUID = ObjectUtils.isEmpty(emp.getImgOriginal()) ? "" : emp.getImgUUID();
         String fileName = ObjectUtils.isEmpty(fileUUID) ? DEFAULT_PROFILE_IMAGE : empMapper.getImgOriginal(fileUUID);
-        ResponseEntity<Resource> s3Response = fileService.downloadFile(FILE_DIR, fileUUID, fileName);
+        ResponseEntity<Resource> fileResponse = fileService.downloadFile(FILE_DIR, fileUUID, fileName);
 
         try {
-            byte[] imageData = Objects.requireNonNull(s3Response.getBody()).getInputStream().readAllBytes();
+            byte[] imageData = Objects.requireNonNull(fileResponse.getBody()).getInputStream().readAllBytes();
 
             // Redis에 이미지 저장
             cacheImage(redisKey, imageData);
@@ -112,7 +112,7 @@ public class ProfileImgService {
         // 기존 프로필 사진이 있고 새 파일로 변경된 경우
         fileService.deleteFile(emp.getImgUUID(), FILE_DIR, emp.getImgOriginal());
         FileDTO uploadedFile = fileService.uploadFile(file, FILE_DIR);
-        cacheImage(redisKey, file);
+        redisTemplate.delete(redisKey);
         return uploadedFile;
     }
 

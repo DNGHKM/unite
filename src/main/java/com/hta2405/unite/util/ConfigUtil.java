@@ -8,10 +8,10 @@ public class ConfigUtil {
     private static Properties properties;
 
     static {
-        try (InputStream input = ConfigUtil.class.getClassLoader().getResourceAsStream("application.properties")) {
+        try (InputStream input = ConfigUtil.class.getClassLoader().getResourceAsStream("application-dev.properties")) {
             properties = new Properties();
             if (input == null) {
-                throw new IOException("application.properties 파일을 찾을 수 없습니다.");
+                throw new IOException("application-dev.properties 파일을 찾을 수 없습니다.");
             }
             properties.load(input);
         } catch (IOException e) {
