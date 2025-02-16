@@ -62,6 +62,6 @@ jobs:
           key: ${{ secrets.SERVER_KEY }}
           script: |
             cd /home/kdh/docker/unite
-            docker-compose pull
+            docker-compose pull app
             docker-compose up -d app
 #            docker image prune -af
