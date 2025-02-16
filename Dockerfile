@@ -8,7 +8,7 @@ WORKDIR /app
 COPY build/libs/*SNAPSHOT.jar app.jar
 
 # 4. 로그 디렉터리 생성 (로그를 파일로 저장하려면 필요)
-RUN mkdir -p /home/docker/unite/logs
+RUN mkdir -p /app/logs
 
 # 5. 실행 명령어 (stdout 및 stderr를 파일로 리디렉션)
 CMD ["sh", "-c", "java -jar /app/app.jar >> /app/logs/app.log 2>&1"]
