@@ -20,7 +20,7 @@ services:
     image: dnghkm/unite-app:latest
     container_name: unite-app
     build:
-      context: /home/kdh/docker/unite/app
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8088:8088"

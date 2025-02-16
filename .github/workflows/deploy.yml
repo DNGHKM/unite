@@ -41,7 +41,7 @@ jobs:
           docker push dnghkm/unite-app:latest
 
       # 7. EC2에 `docker-compose.unite.yml` 파일 전송
-      - name: Deploy docker-compose.unite.yml to EC2
+      - name: Deploy docker-compose.yml to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -63,5 +63,5 @@ jobs:
           script: |
             cd /home/kdh/docker/unite
             docker-compose pull app  # 최신 이미지 다운로드
-            docker-compose up -d --build app  # app 컨테이너만 재시작
+            docker-compose up -d app  # app 컨테이너만 재시작
             docker image prune -af  # 사용하지 않는 이미지 정리
