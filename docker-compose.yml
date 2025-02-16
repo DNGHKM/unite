@@ -8,9 +8,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /home/docker/unite/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro  # default.conf 파일을 마운트
-      - /home/docker/unite/certbot/conf:/etc/letsencrypt  # 인증서 파일 마운트
-      - /home/docker/unite/certbot/www:/var/www/certbot  # Certbot 웹 인증 경로 마운트
+      - /home/kdh/docker/unite/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /home/kdh/docker/unite/certbot/conf:/etc/letsencrypt
+      - /home/kdh/docker/unite/certbot/www:/var/www/certbot
     depends_on:
       - app
     networks:
@@ -20,19 +20,30 @@ services:
     image: dnghkm/unite-app:latest
     container_name: unite-app
     build:
-      context: .
+      context: /home/kdh/docker/unite/app
       dockerfile: Dockerfile
     ports:
       - "8088:8088"
     volumes:
-      - /home/docker/unite/logs:/app/logs  # 로그 파일을 호스트에 저장
+      - /home/kdh/docker/unite/app/logs:/app/logs
     environment:
       TZ: Asia/Seoul
       JAVA_OPTS: "-Duser.timezone=Asia/Seoul"
       SPRING_PROFILES_ACTIVE: prod
-      REDIS_HOST: redis
     depends_on:
       - redis
+      - mysql
+    networks:
+      - unite-network
+
+  mysql:
+    build:
+      context: /home/kdh/docker/unite/mysql
+      dockerfile: Dockerfile
+    container_name: unite-mysql
+    restart: always
+    volumes:
+      - /home/kdh/docker/unite/mysql/data:/var/lib/mysql
     networks:
       - unite-network
 
@@ -41,6 +52,8 @@ services:
     container_name: unite-redis
     ports:
       - "6379:6379"
+    volumes:
+      - /home/kdh/docker/unite/redis/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - unite-network
 
@@ -48,8 +61,8 @@ services:
     image: certbot/certbot
     container_name: unite-certbot
     volumes:
-      - /home/docker/unite/certbot/conf:/etc/letsencrypt
-      - /home/docker/unite/certbot/www:/var/www/certbot
+      - /home/kdh/docker/unite/certbot/conf:/etc/letsencrypt
+      - /home/kdh/docker/unite/certbot/www:/var/www/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
     networks:
       - unite-network
