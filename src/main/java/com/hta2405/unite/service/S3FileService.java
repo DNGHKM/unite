@@ -1,10 +1,5 @@
 package com.hta2405.unite.service;
 
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.hta2405.unite.dto.FileDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,20 +7,21 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-//@Service
-//@RestController
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class S3FileService implements FileService {
@@ -34,75 +30,102 @@ public class S3FileService implements FileService {
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
 
-    private final AmazonS3Client amazonS3Client;
+    private final S3Client s3Client;
 
     public FileDTO uploadFile(MultipartFile file, String subDirectory) {
         try {
-            String fileUUID = String.valueOf(UUID.randomUUID());
+            String fileUUID = UUID.randomUUID().toString();
             String filePath = subDirectory.substring(1) + "/" + fileUUID + "_" + file.getOriginalFilename();
 
-            // S3 객체 메타데이터 설정
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType(file.getContentType());
-            metadata.setContentLength(file.getSize());
+            // S3 객체 메타데이터 설정 (AWS SDK v2)
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(filePath)
+                    .contentType(file.getContentType())
+                    .contentLength(file.getSize())
+                    .build();
 
-            // S3에 파일 업로드
-            amazonS3Client.putObject(bucket, filePath, file.getInputStream(), metadata);
+            // S3에 파일 업로드 (AWS SDK v2 방식)
+            PutObjectResponse response = s3Client.putObject(
+                    putObjectRequest,
+                    RequestBody.fromInputStream(file.getInputStream(), file.getSize())
+            );
 
-            // 업로드된 파일의 URL 반환
+            log.info("File uploaded to S3: {} (ETag: {})", filePath, response.eTag());
+
+            // 업로드된 파일의 URL 반환 (S3 기본 URL 사용)
             return new FileDTO(file.getOriginalFilename(), filePath, file.getContentType(), fileUUID);
         } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("File upload failed");
+            log.error("S3 파일 업로드 실패: {}", e.getMessage(), e);
+            throw new RuntimeException("File upload failed", e);
         }
     }
 
 
+    @Override
     public ResponseEntity<Resource> downloadFile(String subDirectory, String fileUUID, String fileName) {
         String filePath = subDirectory.substring(1) + "/" + fileUUID + "_" + fileName;
         log.info("filePath = {}", filePath);
         try {
-            // S3에서 파일 가져오기
-            S3Object s3Object = amazonS3Client.getObject(new GetObjectRequest(bucket, filePath));
-            S3ObjectInputStream inputStream = s3Object.getObjectContent();
+            // S3에서 파일 가져오기 (AWS SDK v2 방식)
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(filePath)
+                    .build();
 
-            // 파일 리소스로 변환
+            ResponseInputStream<GetObjectResponse> inputStream = s3Client.getObject(getObjectRequest);
             InputStreamResource resource = new InputStreamResource(inputStream);
 
             String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
 
-            // ResponseEntity를 사용하여 파일 다운로드
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType("application/octet-stream"))
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"; filename*=UTF-8''" + encodedFileName)
                     .body(resource);
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("S3 파일 다운로드 실패: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 
     @Override
     public void deleteFile(String fileUUID, String subDirectory, String originalFileName) {
         String filePath = subDirectory.substring(1) + "/" + fileUUID + "_" + originalFileName;
-        log.info("delete filePath = {}", filePath);
-        amazonS3Client.deleteObject(bucket, filePath);
+        log.info("Deleting file from S3: {}", filePath);
+
+        try {
+            // S3에서 파일 삭제 (AWS SDK v2 방식)
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(filePath)
+                    .build();
+
+            s3Client.deleteObject(deleteObjectRequest);
+            log.info("File successfully deleted from S3: {}", filePath);
+        } catch (Exception e) {
+            log.error("S3 파일 삭제 실패: {}", e.getMessage(), e);
+        }
     }
 
     public long getFileSize(String subDirectory, String fileUUID, String fileName) {
         String filePath = subDirectory.substring(1) + "/" + fileUUID + "_" + fileName;
         try {
-            // S3에서 파일 메타데이터 가져오기
-            ObjectMetadata metadata = amazonS3Client.getObjectMetadata(bucket, filePath);
+            // S3에서 파일 메타데이터 가져오기 (AWS SDK v2 방식)
+            HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(filePath)
+                    .build();
+
+            HeadObjectResponse metadata = s3Client.headObject(headObjectRequest);
 
             // 파일 사이즈 (Content-Length)
-            long fileSize = metadata.getContentLength();
+            long fileSize = metadata.contentLength();
             log.info("파일 사이즈: {} bytes", fileSize);
             return fileSize;
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("Failed to get file size from S3");
+            log.error("S3 파일 사이즈 조회 실패: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to get file size from S3", e);
         }
     }
 }
