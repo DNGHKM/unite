@@ -28,14 +28,19 @@ public class TripDocWriter implements DocWriter {
     @Override
     public void write(String empId, DocRequestDTO req) {
         Map<String, Object> formData = req.getFormData();
-        Doc doc = Doc.builder().docWriter(empId)
-                .docType(DocType.TRIP)
-                .docTitle("출장신청서(" + formData.get("writer").toString() + ")")
-                .docContent(formData.get("trip_info").toString())
-                .docCreateDate(LocalDateTime.now())
-                .signFinish(false).build();
 
-        DocTrip docTrip = DocTrip.builder()
+        Doc doc = getDoc(empId, formData);
+        DocTrip docTrip = getDocTrip(formData);
+
+        List<String> signers = new ObjectMapper()
+                .convertValue(req.getFormData().get("signers"), new TypeReference<>() {
+        });
+
+        docService.saveTripDoc(doc, docTrip, signers);
+    }
+
+    private static DocTrip getDocTrip(Map<String, Object> formData) {
+        return DocTrip.builder()
                 .tripStart(LocalDate.parse(formData.get("trip_start").toString()))
                 .tripEnd(LocalDate.parse(formData.get("trip_end").toString()))
                 .tripLoc(formData.get("trip_loc").toString())
@@ -45,11 +50,14 @@ public class TripDocWriter implements DocWriter {
                 .cardEnd(LocalDate.parse(formData.get("card_end").toString()))
                 .cardReturn(LocalDate.parse(formData.get("card_return").toString()))
                 .build();
+    }
 
-        ObjectMapper mapper = new ObjectMapper();
-        List<String> signers = mapper.convertValue(req.getFormData().get("signers"), new TypeReference<>() {
-        });
-
-        docService.saveTripDoc(doc, docTrip, signers);
+    private static Doc getDoc(String empId, Map<String, Object> formData) {
+        return Doc.builder().docWriter(empId)
+                .docType(DocType.TRIP)
+                .docTitle("출장신청서(" + formData.get("writer").toString() + ")")
+                .docContent(formData.get("trip_info").toString())
+                .docCreateDate(LocalDateTime.now())
+                .signFinish(false).build();
     }
 }
