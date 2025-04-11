@@ -4,6 +4,7 @@ import com.hta2405.unite.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.access.expression.SecurityExpressionHandler;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -37,6 +38,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(2)
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(CsrfConfigurer::disable)
                 .formLogin(FormLoginConfigurer::disable)
